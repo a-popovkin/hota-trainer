@@ -256,7 +256,7 @@ void Trainer::TrainMovement()
     bool isNewDay = m_currentWeekday != *currentWeekday;
     m_currentWeekday = *currentWeekday;
 
-    for (char index = 0; index < Constants::s_maxHeroesCount; ++index)
+    for (short index = 0; index < Constants::s_maxHeroesCount; ++index)
     {
         std::byte* pHero = GetHeroClassByIndex(index);
         
