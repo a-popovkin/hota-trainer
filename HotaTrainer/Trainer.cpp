@@ -17,14 +17,14 @@ bool Trainer::Start()
     m_stopEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
     if (!m_stopEvent)
     {
-        LOG(L"CreateEvent ERROR %d", GetLastError());
+        LOG(L"CreateEvent ERROR %d\n", GetLastError());
         return false;
     }
 
     m_workerThread = reinterpret_cast<HANDLE>(_beginthread(WorkerThread, 0, this));
     if (!m_workerThread)
     {
-        LOG(L"_beginthread ERROR %d", GetLastError());
+        LOG(L"_beginthread ERROR %d\n", GetLastError());
         CloseHandle(m_stopEvent);
         return false;
     }
@@ -40,7 +40,7 @@ bool Trainer::Stop()
         return true;
 
     if (!SetEvent(m_stopEvent))
-        LOG(L"SetEvent ERROR %d", GetLastError());
+        LOG(L"SetEvent ERROR %d\n", GetLastError());
 
     LOG(L"Stopping worker thread");
 
@@ -92,7 +92,7 @@ void Trainer::LookupHotaProcess()
     DWORD processID = 0;
     HANDLE hSnapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (hSnapshot == INVALID_HANDLE_VALUE) {
-        LOG(L"CreateToolhelp32Snapshot ERROR %d", GetLastError());
+        LOG(L"CreateToolhelp32Snapshot ERROR %d\n", GetLastError());
         return;
     }
 
@@ -103,6 +103,12 @@ void Trainer::LookupHotaProcess()
     {
         do
         {
+            if (_wcsicmp(pe.szExeFile, Constants::s_HotaHDProcessName) == 0)
+            {
+                processID = pe.th32ProcessID;
+                break;
+            }
+
             if (_wcsicmp(pe.szExeFile, Constants::s_HotaProcessName) == 0)
             {
                 processID = pe.th32ProcessID;
@@ -115,15 +121,19 @@ void Trainer::LookupHotaProcess()
 
     m_hotaProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ | PROCESS_VM_WRITE, FALSE, processID);
     if (!m_hotaProcess) {
-        LOG(L"OpenProcess(%d) ERROR %d", processID, GetLastError());
+        LOG(L"OpenProcess(%d) ERROR %d\n", processID, GetLastError());
         return;
     }
 
+    LOG(L"HotA process found\n");
     m_state = TrainerState::HotaProcessFound;
 }
 
 void Trainer::LookupGameTables()
 {
+    if (not CheckHotaRunning())
+        return;
+
     std::byte* pHeroesTable = nullptr;
     std::byte* pGameClass = nullptr;
 
@@ -145,14 +155,14 @@ void Trainer::LookupGameTables()
             switch (mbi.RegionSize) {
             case Constants::s_heroesTableSize:
                 if (pHeroesTable) 
-                    LOG(L"Found another Heroes table candidate (%p): ignoring. Actual: %p", pBaseAddress, pHeroesTable);
+                    LOG(L"Found another Heroes table candidate (%p): ignoring. Actual: %p\n", pBaseAddress, pHeroesTable);
                 else 
                     pHeroesTable = pBaseAddress;
                 
                 break;
             case Constants::s_gameClassSize:
                 if (pGameClass) 
-                    LOG(L"Found another Game class candidate (%p): ignoring. Actual: %p", pBaseAddress, pGameClass);
+                    LOG(L"Found another Game class candidate (%p): ignoring. Actual: %p\n", pBaseAddress, pGameClass);
                 else
                     pGameClass = pBaseAddress;
 
@@ -170,8 +180,26 @@ void Trainer::LookupGameTables()
         m_globalClassAddress = pGameClass;
         m_playersTableAddress = pGameClass + Constants::s_playersTableOffset;
         
+        LOG(L"Game tables found\n");
         m_state = TrainerState::GameTablesFound;
     }
+}
+
+bool Trainer::CheckHotaRunning()
+{
+    DWORD exitCode = 0;
+    if (GetExitCodeProcess(m_hotaProcess, &exitCode)) {
+        if (exitCode == STILL_ACTIVE) {
+            return true;
+        }
+        else {
+            m_hotaProcess = NULL;
+            m_state = TrainerState::Idle;
+            LOG(L"HotA process exited\n");
+        }
+    }
+
+    return false;
 }
 
 bool Trainer::CheckLocalHumans()
@@ -204,6 +232,9 @@ bool Trainer::CheckLocalHumans()
 
 void Trainer::Train()
 {
+    if (not CheckHotaRunning())
+        return;
+
     if (not CheckLocalHumans())
         return;
 
@@ -272,40 +303,62 @@ void Trainer::TrainMovement()
         }
 
         // this hero is owned by local human
-        auto pMovementAddress = pHero + Constants::s_currentMovementOffset;
+        PatchHeroMovement(pHero, index, isNewDay);
+        
+        if (isNewDay)
+            PatchHeroMaxMovement(pHero);
+    }
+}
 
-        const auto heroMovement = ReadMemory<int32_t>(pMovementAddress);
-        if (not heroMovement.has_value())
-            continue;
+void Trainer::PatchHeroMovement(std::byte* pHero, short heroIndex, bool isNewDay)
+{
+    auto pMovementAddress = pHero + Constants::s_currentMovementOffset;
 
-        bool isKnownHero = m_heroesCurrentMovements.contains(index);
+    const auto heroMovement = ReadMemory<int32_t>(pMovementAddress);
+    if (not heroMovement.has_value())
+        return;
 
-        if (isNewDay or not isKnownHero)
+
+    bool isKnownHero = m_heroesCurrentMovements.contains(heroIndex);
+
+    if (isNewDay or not isKnownHero)
+    {
+        const auto newMovement = static_cast<int32_t>(*heroMovement * m_movementMultiplier.load());
+        if (WriteMemory<int32_t>(pMovementAddress, newMovement))
+            m_heroesCurrentMovements[heroIndex] = newMovement;
+    }
+    else
+    {
+        // hero is guaranteed known
+
+        auto& lastKnownMovement = m_heroesCurrentMovements[heroIndex];
+
+        const auto diff = *heroMovement - lastKnownMovement;
+        if (diff > 0) // if newer is greater
         {
-            const auto newMovement = static_cast<int32_t>(*heroMovement * m_movementMultiplier.load());
+            const auto newMovement = static_cast<int32_t>(lastKnownMovement + diff * m_movementMultiplier.load());
+
             if (WriteMemory<int32_t>(pMovementAddress, newMovement))
-                m_heroesCurrentMovements[index] = newMovement;
+                lastKnownMovement = newMovement;
         }
         else
         {
-            // hero is guaranteed known
-
-            auto& lastKnownMovement = m_heroesCurrentMovements[index];
-
-            const auto diff = *heroMovement - lastKnownMovement;
-            if (diff > 0) // if newer is greater
-            {
-                const auto newMovement = static_cast<int32_t>(lastKnownMovement + diff * m_movementMultiplier.load());
-
-                if (WriteMemory<int32_t>(pMovementAddress, newMovement))
-                    lastKnownMovement = newMovement;
-            }
-            else
-            {
-                lastKnownMovement = *heroMovement;
-            }
+            lastKnownMovement = *heroMovement;
         }
     }
+}
+
+void Trainer::PatchHeroMaxMovement(std::byte* pHero)
+{
+    auto pMaxMovementAddress = pHero + Constants::s_maxMovementOffset;
+
+    const auto heroMaxMovement = ReadMemory<int32_t>(pMaxMovementAddress);
+    if (not heroMaxMovement.has_value())
+        return;
+
+    const auto newMaxMovement = static_cast<int32_t>(*heroMaxMovement * m_movementMultiplier.load());
+
+    WriteMemory<int32_t>(pMaxMovementAddress, newMaxMovement);
 }
 
 

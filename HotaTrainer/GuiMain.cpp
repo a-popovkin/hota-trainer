@@ -21,7 +21,7 @@
 #define SLIDER_MIN_POS    0
 #define SLIDER_MAX_POS    1000    // High resolution for smooth logarithmic scaling
 #define VALUE_MIN         1.0
-#define VALUE_MAX         100.0
+#define VALUE_MAX         20.0
 
 // Global Variables
 HINSTANCE hInst;
@@ -230,7 +230,7 @@ void CreateControls(HWND hWnd)
         20, 105, 30, 15,
         hWnd, nullptr, hInst, nullptr);
 
-    CreateWindow(L"STATIC", L"100",
+    CreateWindow(L"STATIC", L"20",
         WS_VISIBLE | WS_CHILD,
         240, 105, 30, 15,
         hWnd, nullptr, hInst, nullptr);
@@ -240,13 +240,13 @@ void CreateControls(HWND hWnd)
         20, 215, 30, 15,
         hWnd, nullptr, hInst, nullptr);
 
-    CreateWindow(L"STATIC", L"100",
+    CreateWindow(L"STATIC", L"20",
         WS_VISIBLE | WS_CHILD,
         240, 215, 30, 15,
         hWnd, nullptr, hInst, nullptr);
 }
 
-// Convert slider position to logarithmic value (1.0 to 100.0)
+// Convert slider position to logarithmic value (1.0 to 20.0)
 double SliderPosToValue(int position)
 {
     if (position <= SLIDER_MIN_POS) return VALUE_MIN;
@@ -328,10 +328,7 @@ double CustomRound(double value)
 {
     if (value < 3.0) 
         return std::round(value * 10.0) / 10.0;
-    else if (value <= 20.0) 
-        return std::round(value);
-    else if (value <= 60.0) 
-        return std::round(value / 5.0) * 5.0;
     else 
-        return std::round(value / 10.0) * 10.0;
+        return std::round(value);
+    
 }

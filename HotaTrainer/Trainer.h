@@ -62,9 +62,14 @@ private:
 	void LookupGameTables();
 	void Train();
 
+	bool CheckHotaRunning();
 	bool CheckLocalHumans();
 	void TrainGold();
 	void TrainMovement();
+
+	void PatchHeroMovement(std::byte* pHero, short heroIndex, bool isNewDay);
+	void PatchHeroMaxMovement(std::byte* pHero);
+
 
 	inline std::byte* GetPlayerClassByColor(PlayerColor playerColor) const;
 	inline std::byte* GetHeroClassByIndex(size_t index) const;

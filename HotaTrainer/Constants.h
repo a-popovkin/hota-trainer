@@ -1,7 +1,8 @@
 #pragma once
 
 namespace Constants {
-	const wchar_t* s_HotaProcessName = L"h3hota HD.exe";
+	const wchar_t* s_HotaHDProcessName = L"h3hota HD.exe";
+	const wchar_t* s_HotaProcessName = L"h3hota.exe";
 
 	constexpr size_t s_heroesTableSize = 0x39000;
 	constexpr size_t s_maxHeroesCount = 0xC7;
