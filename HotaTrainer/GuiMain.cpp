@@ -4,6 +4,7 @@
 #include <string>
 #include <memory>
 
+#include "Resource.h"
 #include "Trainer.h"
 
 // Link with ComCtl32.lib for trackbar controls
@@ -17,6 +18,8 @@
 #define ID_MOVEMENT_SLIDER      1005
 #define ID_MOVEMENT_VALUE_DISPLAY 1006
 
+#define ID_CUSTOM_CLOSE 2001
+
 // Slider constants
 #define SLIDER_MIN_POS    0
 #define SLIDER_MAX_POS    1000    // High resolution for smooth logarithmic scaling
@@ -25,6 +28,12 @@
 
 // Global Variables
 HINSTANCE hInst;
+HBITMAP hBitmapBackground = nullptr;
+HBITMAP hBitmapClose = nullptr;
+HFONT hFont = nullptr;  
+HBITMAP hCtlBackground = nullptr; 
+HBRUSH  hCtlBackgroundBrush = nullptr;
+
 HWND hGoldCheckbox, hGoldSlider, hGoldValueDisplay;
 HWND hMovementCheckbox, hMovementSlider, hMovementValueDisplay;
 
@@ -64,18 +73,37 @@ int APIENTRY WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLi
     if (!trainer->Start())
         return EXIT_FAILURE;
 
+    hBitmapBackground = LoadBitmap(hInst, MAKEINTRESOURCEW(IDB_BITMAP1));
+    hBitmapClose = LoadBitmap(hInst, MAKEINTRESOURCEW(IDB_BITMAP2));
+    hCtlBackground = LoadBitmap(hInst, MAKEINTRESOURCE(IDB_BITMAP3));
+    hCtlBackgroundBrush = CreatePatternBrush(hCtlBackground);
+
     // Create main window
     HWND hWnd = CreateWindow(
         L"MainWindow",
         L"HoTA trainer",
-        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX,
+        WS_POPUP,
         CW_USEDEFAULT, CW_USEDEFAULT,
-        450, 320,
+        512, 512,
         nullptr, nullptr, hInstance, trainer.get()
     );
 
     if (!hWnd)
         return FALSE;
+
+    // Make window centered
+    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
+    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+
+    RECT rc;
+    GetWindowRect(hWnd, &rc);
+    int wndWidth = rc.right - rc.left;
+    int wndHeight = rc.bottom - rc.top;
+
+    int x = (screenWidth - wndWidth) / 2;
+    int y = (screenHeight - wndHeight) / 2;
+
+    SetWindowPos(hWnd, nullptr, x, y, 0, 0, SWP_NOZORDER | SWP_NOSIZE);
 
     ShowWindow(hWnd, nCmdShow);
     UpdateWindow(hWnd);
@@ -122,6 +150,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
         switch (wmId)
         {
+        case ID_CUSTOM_CLOSE:
+            DestroyWindow(hWnd);
+            break;
+
         case ID_GOLD_CHECKBOX:
             if (wmEvent == BN_CLICKED)
                 UpdateGoldSettings(pTrainer);
@@ -154,7 +186,65 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     }
     break;
 
+    case WM_PAINT:
+    {
+        PAINTSTRUCT ps;
+        HDC hdc = BeginPaint(hWnd, &ps);
+
+        if (hBitmapBackground)
+        {
+            HDC hdcMem = CreateCompatibleDC(hdc);
+            HBITMAP hOldBitmap = (HBITMAP)SelectObject(hdcMem, hBitmapBackground);
+
+            BITMAP bm;
+            GetObject(hBitmapBackground, sizeof(bm), &bm);
+
+            BitBlt(hdc, 0, 0, bm.bmWidth, bm.bmHeight, hdcMem, 0, 0, SRCCOPY);
+
+            SelectObject(hdcMem, hOldBitmap);
+            DeleteDC(hdcMem);
+        }
+
+        EndPaint(hWnd, &ps);
+    }
+    break;
+
+    case WM_NCHITTEST:
+    {
+        LRESULT hit = DefWindowProc(hWnd, message, wParam, lParam);
+        if (hit == HTCLIENT)
+            return HTCAPTION;
+        else
+            return hit;
+    }
+    case WM_CTLCOLORSTATIC:
+    case WM_CTLCOLORBTN:
+    {
+        HDC  hdc = (HDC)wParam;
+        HWND hCtl = (HWND)lParam;
+
+        SetTextColor(hdc, RGB(255, 251, 230));
+        SetBkMode(hdc, TRANSPARENT); 
+        if (hCtlBackgroundBrush)
+        {
+            POINT pt{ 0,0 };
+            MapWindowPoints(hCtl, hWnd, &pt, 1);   
+            SetBrushOrgEx(hdc, -pt.x, -pt.y, nullptr);
+            return (INT_PTR)hCtlBackgroundBrush;        
+        }
+        return (INT_PTR)GetStockObject(HOLLOW_BRUSH);
+    }
+
     case WM_DESTROY:
+        if (hBitmapBackground)
+            DeleteObject(hBitmapBackground);
+
+        if (hBitmapClose)
+            DeleteObject(hBitmapClose);
+
+        if (hFont)
+            DeleteObject(hFont);
+
         PostQuitMessage(0);
         break;
 
@@ -166,84 +256,118 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 
 void CreateControls(HWND hWnd)
 {
-    // Gold section label
-    CreateWindow(L"STATIC", L"Gold:",
-        WS_VISIBLE | WS_CHILD,
-        20, 20, 100, 20,
-        hWnd, nullptr, hInst, nullptr);
+    std::vector<HWND> controls;
 
-    // Gold checkbox
+    HWND hButton = CreateWindow(L"BUTTON", L"",
+        WS_CHILD | WS_VISIBLE | BS_BITMAP,
+        477, 5, 30, 30,
+        hWnd, (HMENU)ID_CUSTOM_CLOSE, hInst, nullptr);
+    SendMessage(hButton, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)hBitmapClose);
+    controls.push_back(hButton);
+
+    HWND hVersionLabel = CreateWindow(L"STATIC", L"HotA v 1.7.3",
+        WS_VISIBLE | WS_CHILD,
+        425, 76, 80, 20,
+        hWnd, nullptr, hInst, nullptr);
+    controls.push_back(hVersionLabel);
+
+    int baseY = 270; // bottom part
+
+    HWND hGoldLabel = CreateWindow(L"STATIC", L"Gold:",
+        WS_VISIBLE | WS_CHILD,
+        20, baseY + 0, 100, 20,
+        hWnd, nullptr, hInst, nullptr);
+    controls.push_back(hGoldLabel);
+
     hGoldCheckbox = CreateWindow(L"BUTTON", L"Enable Gold",
         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
-        20, 45, 120, 25,
+        20, baseY + 25, 120, 20,
         hWnd, (HMENU)ID_GOLD_CHECKBOX, hInst, nullptr);
+    controls.push_back(hGoldCheckbox);
 
-    // Gold slider
     hGoldSlider = CreateWindow(TRACKBAR_CLASS, L"",
         WS_VISIBLE | WS_CHILD | TBS_HORZ | TBS_AUTOTICKS,
-        20, 75, 250, 30,
+        20, baseY + 55, 250, 30,
         hWnd, (HMENU)ID_GOLD_SLIDER, hInst, nullptr);
+    controls.push_back(hGoldSlider);
 
-    // Configure gold slider
-    SendMessage(hGoldSlider, TBM_SETRANGE, TRUE, MAKELPARAM(SLIDER_MIN_POS, SLIDER_MAX_POS));
-    SendMessage(hGoldSlider, TBM_SETPOS, TRUE, ValueToSliderPos(1.0)); // Default to 1.0
-    SendMessage(hGoldSlider, TBM_SETTICFREQ, SLIDER_MAX_POS / 10, 0);
-
-    // Gold value display
     hGoldValueDisplay = CreateWindow(L"STATIC", L"1.0",
         WS_VISIBLE | WS_CHILD,
-        280, 80, 60, 20,
+        280, baseY + 60, 30, 20,
         hWnd, (HMENU)ID_GOLD_VALUE_DISPLAY, hInst, nullptr);
+    controls.push_back(hGoldValueDisplay);
 
-    // Movement section label
-    CreateWindow(L"STATIC", L"Movement:",
+    HWND goldScale1 = CreateWindow(L"STATIC", L"1.0",
         WS_VISIBLE | WS_CHILD,
-        20, 130, 100, 20,
+        20, baseY + 90, 30, 20,
         hWnd, nullptr, hInst, nullptr);
+    controls.push_back(goldScale1);
 
-    // Movement checkbox
+    HWND goldScale20 = CreateWindow(L"STATIC", L"20",
+        WS_VISIBLE | WS_CHILD,
+        240, baseY + 90, 30, 20,
+        hWnd, nullptr, hInst, nullptr);
+    controls.push_back(goldScale20);
+
+    HWND hMovementLabel = CreateWindow(L"STATIC", L"Movement:",
+        WS_VISIBLE | WS_CHILD,
+        20, baseY + 130, 100, 20,
+        hWnd, nullptr, hInst, nullptr);
+    controls.push_back(hMovementLabel);
+
     hMovementCheckbox = CreateWindow(L"BUTTON", L"Enable Movement",
         WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
-        20, 155, 140, 25,
+        20, baseY + 155, 140, 20,
         hWnd, (HMENU)ID_MOVEMENT_CHECKBOX, hInst, nullptr);
+    controls.push_back(hMovementCheckbox);
 
-    // Movement slider
     hMovementSlider = CreateWindow(TRACKBAR_CLASS, L"",
         WS_VISIBLE | WS_CHILD | TBS_HORZ | TBS_AUTOTICKS,
-        20, 185, 250, 30,
+        20, baseY + 185, 250, 30,
         hWnd, (HMENU)ID_MOVEMENT_SLIDER, hInst, nullptr);
+    controls.push_back(hMovementSlider);
 
-    // Configure movement slider
-    SendMessage(hMovementSlider, TBM_SETRANGE, TRUE, MAKELPARAM(SLIDER_MIN_POS, SLIDER_MAX_POS));
-    SendMessage(hMovementSlider, TBM_SETPOS, TRUE, ValueToSliderPos(1.0)); // Default to 1.0
-    SendMessage(hMovementSlider, TBM_SETTICFREQ, SLIDER_MAX_POS / 10, 0);
-
-    // Movement value display
     hMovementValueDisplay = CreateWindow(L"STATIC", L"1.0",
         WS_VISIBLE | WS_CHILD,
-        280, 190, 60, 20,
+        280, baseY + 190, 30, 20,
         hWnd, (HMENU)ID_MOVEMENT_VALUE_DISPLAY, hInst, nullptr);
+    controls.push_back(hMovementValueDisplay);
 
-    // Scale labels
-    CreateWindow(L"STATIC", L"1.0",
+    HWND movementScale1 = CreateWindow(L"STATIC", L"1.0",
         WS_VISIBLE | WS_CHILD,
-        20, 105, 30, 15,
+        20, baseY + 220, 30, 20,
         hWnd, nullptr, hInst, nullptr);
+    controls.push_back(movementScale1);
 
-    CreateWindow(L"STATIC", L"20",
+    HWND movementScale20 = CreateWindow(L"STATIC", L"20",
         WS_VISIBLE | WS_CHILD,
-        240, 105, 30, 15,
+        240, baseY + 220, 30, 20,
         hWnd, nullptr, hInst, nullptr);
+    controls.push_back(movementScale20);
 
-    CreateWindow(L"STATIC", L"1.0",
-        WS_VISIBLE | WS_CHILD,
-        20, 215, 30, 15,
-        hWnd, nullptr, hInst, nullptr);
+    // Initial settings
+    SendMessage(hGoldSlider, TBM_SETRANGE, TRUE, MAKELPARAM(SLIDER_MIN_POS, SLIDER_MAX_POS));
+    SendMessage(hGoldSlider, TBM_SETPOS, TRUE, ValueToSliderPos(1.0));
+    SendMessage(hGoldSlider, TBM_SETTICFREQ, SLIDER_MAX_POS / 10, 0);
 
-    CreateWindow(L"STATIC", L"20",
-        WS_VISIBLE | WS_CHILD,
-        240, 215, 30, 15,
-        hWnd, nullptr, hInst, nullptr);
+    SendMessage(hMovementSlider, TBM_SETRANGE, TRUE, MAKELPARAM(SLIDER_MIN_POS, SLIDER_MAX_POS));
+    SendMessage(hMovementSlider, TBM_SETPOS, TRUE, ValueToSliderPos(1.0));
+    SendMessage(hMovementSlider, TBM_SETTICFREQ, SLIDER_MAX_POS / 10, 0);
+
+    if (!hFont)
+    {
+        hFont = CreateFont(
+            17, 0, 0, 0,
+            FW_NORMAL, FALSE, FALSE, FALSE,
+            DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
+            CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
+            FF_DONTCARE | DEFAULT_PITCH,
+            L"Goudy Old Style"
+        );
+    }
+
+    for (auto ctrl : controls)
+        SendMessage(ctrl, WM_SETFONT, (WPARAM)hFont, TRUE);
 }
 
 // Convert slider position to logarithmic value (1.0 to 20.0)

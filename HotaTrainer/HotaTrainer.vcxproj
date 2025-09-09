@@ -143,8 +143,10 @@
     <ResourceCompile Include="HotaTrainer.rc" />
   </ItemGroup>
   <ItemGroup>
-    <Image Include="HotaTrainer.ico" />
-    <Image Include="small.ico" />
+    <Image Include="resources\background.bmp" />
+    <Image Include="resources\close.bmp" />
+    <Image Include="resources\control_background.bmp" />
+    <Image Include="resources\icon.ico" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

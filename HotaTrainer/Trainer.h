@@ -45,7 +45,7 @@ private:
 	HANDLE m_stopEvent;
 	HANDLE m_workerThread;
 	static void WorkerThread(void* pParam);
-	static const DWORD s_checkInterval = 500; // every half a second
+	static const DWORD s_checkInterval = 100; // every 100ms
 
 	TrainerState m_state = TrainerState::Idle;
 	HANDLE m_hotaProcess = NULL;
