@@ -50,13 +50,15 @@ bool Trainer::Stop()
     return !m_isStarted;
 }
 
-void Trainer::UpdateMovementMultiplier(double movement)
+void Trainer::UpdateMovementMultiplier(double movement, bool freeze)
 {
+    m_freezeMovement.store(freeze);
     m_movementMultiplier.store(movement);
 }
 
-void Trainer::UpdateGoldMultiplier(double gold)
+void Trainer::UpdateGoldMultiplier(double gold, bool freeze)
 {
+    m_freezeGold.store(freeze);
     m_goldMultiplier.store(gold);
 }
 
@@ -238,10 +240,10 @@ void Trainer::Train()
     if (not CheckLocalHumans())
         return;
 
-    if (m_goldMultiplier.load() > 1.0)
+    if (m_goldMultiplier.load() > 1.0 or m_freezeGold)
         TrainGold();
 
-    if (m_movementMultiplier.load() > 1.0)
+    if (m_movementMultiplier.load() > 1.0 or m_freezeMovement)
         TrainMovement();
 }
 
@@ -263,6 +265,13 @@ void Trainer::TrainGold()
         }
 
         const auto diff = *playerGold - lastKnownGold;
+        if (m_freezeGold)
+        {
+            // freeze and continue
+            WriteMemory<int32_t>(pGoldAddress, lastKnownGold);
+            continue;
+        }
+
         if (diff > 0) // if newer is greater
         {
             const auto newGold = static_cast<int32_t>(lastKnownGold + diff * m_goldMultiplier.load());
@@ -320,17 +329,26 @@ void Trainer::PatchHeroMovement(std::byte* pHero, short heroIndex, bool isNewDay
 
 
     bool isKnownHero = m_heroesCurrentMovements.contains(heroIndex);
+    if (not isKnownHero) 
+        m_heroesCurrentMovements[heroIndex] = *heroMovement;
+    
+    if (m_freezeMovement)
+    {
+        // freeze and exit
+        auto& lastKnownMovement = m_heroesCurrentMovements[heroIndex];
+        WriteMemory<int32_t>(pMovementAddress, lastKnownMovement);
+        return;
+    }
 
-    if (isNewDay or not isKnownHero)
+    if (isNewDay)
     {
         const auto newMovement = static_cast<int32_t>(*heroMovement * m_movementMultiplier.load());
         if (WriteMemory<int32_t>(pMovementAddress, newMovement))
             m_heroesCurrentMovements[heroIndex] = newMovement;
+
     }
     else
     {
-        // hero is guaranteed known
-
         auto& lastKnownMovement = m_heroesCurrentMovements[heroIndex];
 
         const auto diff = *heroMovement - lastKnownMovement;

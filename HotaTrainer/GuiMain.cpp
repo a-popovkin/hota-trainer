@@ -17,6 +17,9 @@
 #define ID_MOVEMENT_CHECKBOX    1004
 #define ID_MOVEMENT_SLIDER      1005
 #define ID_MOVEMENT_VALUE_DISPLAY 1006
+#define ID_GOLD_FREEZE_CHECKBOX        1007
+#define ID_MOVEMENT_FREEZE_CHECKBOX    1008
+
 
 #define ID_CUSTOM_CLOSE 2001
 
@@ -36,6 +39,8 @@ HBRUSH  hCtlBackgroundBrush = nullptr;
 
 HWND hGoldCheckbox, hGoldSlider, hGoldValueDisplay;
 HWND hMovementCheckbox, hMovementSlider, hMovementValueDisplay;
+HWND hGoldFreezeCheckbox, hMovementFreezeCheckbox;
+
 
 // Forward declarations
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
@@ -165,9 +170,20 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 UpdateMovementSettings(pTrainer);
 
             break;
+        case ID_GOLD_FREEZE_CHECKBOX:
+            if (wmEvent == BN_CLICKED)
+                UpdateGoldSettings(pTrainer);
+
+            break;
+
+        case ID_MOVEMENT_FREEZE_CHECKBOX:
+            if (wmEvent == BN_CLICKED)
+                UpdateMovementSettings(pTrainer);
+
+            break;
         }
+        break;
     }
-    break;
 
     case WM_HSCROLL:
     {
@@ -285,6 +301,14 @@ void CreateControls(HWND hWnd)
         hWnd, (HMENU)ID_GOLD_CHECKBOX, hInst, nullptr);
     controls.push_back(hGoldCheckbox);
 
+    hGoldFreezeCheckbox = CreateWindow(
+        L"BUTTON", L"Freeze gold",
+        WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+        150, baseY + 25, 140, 20,
+        hWnd, (HMENU)ID_GOLD_FREEZE_CHECKBOX, hInst, nullptr);
+    controls.push_back(hGoldFreezeCheckbox);
+    EnableWindow(hGoldFreezeCheckbox, FALSE); // disabled until gold is switched on
+
     hGoldSlider = CreateWindow(TRACKBAR_CLASS, L"",
         WS_VISIBLE | WS_CHILD | TBS_HORZ | TBS_AUTOTICKS,
         20, baseY + 55, 250, 30,
@@ -320,6 +344,14 @@ void CreateControls(HWND hWnd)
         20, baseY + 155, 140, 20,
         hWnd, (HMENU)ID_MOVEMENT_CHECKBOX, hInst, nullptr);
     controls.push_back(hMovementCheckbox);
+
+    hMovementFreezeCheckbox = CreateWindow(
+        L"BUTTON", L"Freeze movement",
+        WS_VISIBLE | WS_CHILD | BS_AUTOCHECKBOX,
+        170, baseY + 155, 160, 20, 
+        hWnd, (HMENU)ID_MOVEMENT_FREEZE_CHECKBOX, hInst, nullptr);
+    controls.push_back(hMovementFreezeCheckbox);
+    EnableWindow(hMovementFreezeCheckbox, FALSE); // disabled until movement is switched on
 
     hMovementSlider = CreateWindow(TRACKBAR_CLASS, L"",
         WS_VISIBLE | WS_CHILD | TBS_HORZ | TBS_AUTOTICKS,
@@ -414,7 +446,11 @@ void UpdateValueDisplay(HWND hSlider, HWND hDisplay)
 
 void UpdateGoldSettings(Trainer* pTrainer)
 {
-    bool isGoldEnabled = (BST_CHECKED == SendMessage(hGoldCheckbox, BM_GETCHECK, 0, 0));
+    bool isGoldEnabled = BST_CHECKED == SendMessage(hGoldCheckbox, BM_GETCHECK, 0, 0);
+    bool freezeGold = BST_CHECKED == SendMessage(hGoldFreezeCheckbox, BM_GETCHECK, 0, 0);
+
+    EnableWindow(hGoldSlider, !freezeGold);
+    EnableWindow(hGoldFreezeCheckbox, isGoldEnabled);
 
     if (isGoldEnabled)
     {
@@ -422,17 +458,21 @@ void UpdateGoldSettings(Trainer* pTrainer)
         int sliderPos = static_cast<int>(SendMessage(hGoldSlider, TBM_GETPOS, 0, 0));
         double goldValue = SliderPosToValue(sliderPos);
 
-        pTrainer->UpdateGoldMultiplier(CustomRound(goldValue));
+        pTrainer->UpdateGoldMultiplier(CustomRound(goldValue), freezeGold);
     }
     else
     {
-        pTrainer->UpdateGoldMultiplier(1.0);
+        pTrainer->UpdateGoldMultiplier(1.0, false);
     }
 }
 
 void UpdateMovementSettings(Trainer* pTrainer)
 {
-    bool isMovementEnabled = (BST_CHECKED == SendMessage(hMovementCheckbox, BM_GETCHECK, 0, 0));
+    bool isMovementEnabled = BST_CHECKED == SendMessage(hMovementCheckbox, BM_GETCHECK, 0, 0);
+    bool freezeMovement = BST_CHECKED == SendMessage(hMovementFreezeCheckbox, BM_GETCHECK, 0, 0);
+
+    EnableWindow(hMovementSlider, !freezeMovement);
+    EnableWindow(hMovementFreezeCheckbox, isMovementEnabled);
 
     if (isMovementEnabled)
     {
@@ -440,11 +480,11 @@ void UpdateMovementSettings(Trainer* pTrainer)
         int sliderPos = static_cast<int>(SendMessage(hMovementSlider, TBM_GETPOS, 0, 0));
         double movementValue = SliderPosToValue(sliderPos);
 
-        pTrainer->UpdateMovementMultiplier(CustomRound(movementValue));
+        pTrainer->UpdateMovementMultiplier(CustomRound(movementValue), freezeMovement);
     }
     else
     {
-        pTrainer->UpdateMovementMultiplier(1.0);
+        pTrainer->UpdateMovementMultiplier(1.0, false);
     }
 }
 

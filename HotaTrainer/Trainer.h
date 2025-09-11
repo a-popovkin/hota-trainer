@@ -33,12 +33,15 @@ public:
 	bool Start();
 	bool Stop();
 
-	void UpdateMovementMultiplier(double movement);
-	void UpdateGoldMultiplier(double gold);
+	void UpdateMovementMultiplier(double movement, bool freeze);
+	void UpdateGoldMultiplier(double gold, bool freeze);
 
 private:
 	std::atomic<double> m_goldMultiplier = 1.0;
 	std::atomic<double> m_movementMultiplier = 1.0;
+
+	std::atomic<bool> m_freezeGold = false;
+	std::atomic<bool> m_freezeMovement = false;
 
 	bool m_isStarted;
 
