@@ -265,8 +265,8 @@ void CreateControls(HWND hWnd)
     SendMessage(hButton, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)hBitmapClose);
     controls.push_back(hButton);
 
-    HWND hVersionLabel = CreateWindow(L"STATIC", L"HotA v 1.7.3",
-        WS_VISIBLE | WS_CHILD,
+    HWND hVersionLabel = CreateWindow(L"STATIC", L"HotA v1.7.3",
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
         425, 76, 80, 20,
         hWnd, nullptr, hInst, nullptr);
     controls.push_back(hVersionLabel);
@@ -274,7 +274,7 @@ void CreateControls(HWND hWnd)
     int baseY = 270; // bottom part
 
     HWND hGoldLabel = CreateWindow(L"STATIC", L"Gold:",
-        WS_VISIBLE | WS_CHILD,
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
         20, baseY + 0, 100, 20,
         hWnd, nullptr, hInst, nullptr);
     controls.push_back(hGoldLabel);
@@ -292,25 +292,25 @@ void CreateControls(HWND hWnd)
     controls.push_back(hGoldSlider);
 
     hGoldValueDisplay = CreateWindow(L"STATIC", L"1.0",
-        WS_VISIBLE | WS_CHILD,
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
         280, baseY + 60, 30, 20,
         hWnd, (HMENU)ID_GOLD_VALUE_DISPLAY, hInst, nullptr);
     controls.push_back(hGoldValueDisplay);
 
     HWND goldScale1 = CreateWindow(L"STATIC", L"1.0",
-        WS_VISIBLE | WS_CHILD,
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
         20, baseY + 90, 30, 20,
         hWnd, nullptr, hInst, nullptr);
     controls.push_back(goldScale1);
 
     HWND goldScale20 = CreateWindow(L"STATIC", L"20",
-        WS_VISIBLE | WS_CHILD,
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
         240, baseY + 90, 30, 20,
         hWnd, nullptr, hInst, nullptr);
     controls.push_back(goldScale20);
 
     HWND hMovementLabel = CreateWindow(L"STATIC", L"Movement:",
-        WS_VISIBLE | WS_CHILD,
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
         20, baseY + 130, 100, 20,
         hWnd, nullptr, hInst, nullptr);
     controls.push_back(hMovementLabel);
@@ -328,19 +328,19 @@ void CreateControls(HWND hWnd)
     controls.push_back(hMovementSlider);
 
     hMovementValueDisplay = CreateWindow(L"STATIC", L"1.0",
-        WS_VISIBLE | WS_CHILD,
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
         280, baseY + 190, 30, 20,
         hWnd, (HMENU)ID_MOVEMENT_VALUE_DISPLAY, hInst, nullptr);
     controls.push_back(hMovementValueDisplay);
 
     HWND movementScale1 = CreateWindow(L"STATIC", L"1.0",
-        WS_VISIBLE | WS_CHILD,
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
         20, baseY + 220, 30, 20,
         hWnd, nullptr, hInst, nullptr);
     controls.push_back(movementScale1);
 
     HWND movementScale20 = CreateWindow(L"STATIC", L"20",
-        WS_VISIBLE | WS_CHILD,
+        WS_VISIBLE | WS_CHILD | SS_CENTER,
         240, baseY + 220, 30, 20,
         hWnd, nullptr, hInst, nullptr);
     controls.push_back(movementScale20);
@@ -357,8 +357,8 @@ void CreateControls(HWND hWnd)
     if (!hFont)
     {
         hFont = CreateFont(
-            17, 0, 0, 0,
-            FW_NORMAL, FALSE, FALSE, FALSE,
+            16, 0, 0, 0,
+            FW_BOLD, FALSE, FALSE, FALSE,
             DEFAULT_CHARSET, OUT_DEFAULT_PRECIS,
             CLIP_DEFAULT_PRECIS, ANTIALIASED_QUALITY,
             FF_DONTCARE | DEFAULT_PITCH,
