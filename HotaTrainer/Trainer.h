@@ -59,7 +59,9 @@ private:
 
 	uint16_t m_currentWeekday = 0;
 	std::map<PlayerColor, int32_t> m_localHumans;
-	std::unordered_map<short, int32_t> m_heroesCurrentMovements; // only owned by local humans
+
+	// hero id to <current moves, max moves>
+	std::unordered_map<short, std::pair<int32_t, int32_t>> m_heroesMovements; //only owned by local humans
 
 	void LookupHotaProcess();
 	void LookupGameTables();
@@ -71,7 +73,6 @@ private:
 	void TrainMovement();
 
 	void PatchHeroMovement(std::byte* pHero, short heroIndex, bool isNewDay);
-	void PatchHeroMaxMovement(std::byte* pHero);
 
 
 	inline std::byte* GetPlayerClassByColor(PlayerColor playerColor) const;

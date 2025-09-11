@@ -307,35 +307,37 @@ void Trainer::TrainMovement()
         if (not m_localHumans.contains(static_cast<PlayerColor>(*heroColor)))
         {
             // remove if present in tracking heroes
-            m_heroesCurrentMovements.erase(index);
+            m_heroesMovements.erase(index);
             continue;
         }
 
         // this hero is owned by local human
         PatchHeroMovement(pHero, index, isNewDay);
-        
-        if (isNewDay)
-            PatchHeroMaxMovement(pHero);
     }
 }
 
 void Trainer::PatchHeroMovement(std::byte* pHero, short heroIndex, bool isNewDay)
 {
     auto pMovementAddress = pHero + Constants::s_currentMovementOffset;
+    auto pMaxMovementAddress = pHero + Constants::s_maxMovementOffset;
 
     const auto heroMovement = ReadMemory<int32_t>(pMovementAddress);
     if (not heroMovement.has_value())
         return;
 
+    const auto heroMaxMovement = ReadMemory<int32_t>(pMaxMovementAddress);
+    if (not heroMaxMovement.has_value())
+        return;
 
-    bool isKnownHero = m_heroesCurrentMovements.contains(heroIndex);
+
+    bool isKnownHero = m_heroesMovements.contains(heroIndex);
     if (not isKnownHero) 
-        m_heroesCurrentMovements[heroIndex] = *heroMovement;
+        m_heroesMovements[heroIndex] = make_pair(*heroMovement, *heroMaxMovement);
     
     if (m_freezeMovement)
     {
         // freeze and exit
-        auto& lastKnownMovement = m_heroesCurrentMovements[heroIndex];
+        auto& lastKnownMovement = m_heroesMovements[heroIndex].first;
         WriteMemory<int32_t>(pMovementAddress, lastKnownMovement);
         return;
     }
@@ -344,12 +346,11 @@ void Trainer::PatchHeroMovement(std::byte* pHero, short heroIndex, bool isNewDay
     {
         const auto newMovement = static_cast<int32_t>(*heroMovement * m_movementMultiplier.load());
         if (WriteMemory<int32_t>(pMovementAddress, newMovement))
-            m_heroesCurrentMovements[heroIndex] = newMovement;
-
+            m_heroesMovements[heroIndex].first = newMovement;
     }
     else
     {
-        auto& lastKnownMovement = m_heroesCurrentMovements[heroIndex];
+        auto& lastKnownMovement = m_heroesMovements[heroIndex].first;
 
         const auto diff = *heroMovement - lastKnownMovement;
         if (diff > 0) // if newer is greater
@@ -364,19 +365,19 @@ void Trainer::PatchHeroMovement(std::byte* pHero, short heroIndex, bool isNewDay
             lastKnownMovement = *heroMovement;
         }
     }
-}
+    
+    // max movement patching
 
-void Trainer::PatchHeroMaxMovement(std::byte* pHero)
-{
-    auto pMaxMovementAddress = pHero + Constants::s_maxMovementOffset;
+    // patch only if value has been in-game updated
+    if (m_heroesMovements[heroIndex].second == *heroMaxMovement)
+    {
+        // firstly remember real new max movement
+        m_heroesMovements[heroIndex].second = *heroMaxMovement;
+        const auto newMaxMovement = static_cast<int32_t>(m_heroesMovements[heroIndex].second * m_movementMultiplier.load());
 
-    const auto heroMaxMovement = ReadMemory<int32_t>(pMaxMovementAddress);
-    if (not heroMaxMovement.has_value())
-        return;
-
-    const auto newMaxMovement = static_cast<int32_t>(*heroMaxMovement * m_movementMultiplier.load());
-
-    WriteMemory<int32_t>(pMaxMovementAddress, newMaxMovement);
+        // patch in-game value only, locally store normal max value
+        WriteMemory<int32_t>(pMaxMovementAddress, newMaxMovement);
+    }
 }
 
 
