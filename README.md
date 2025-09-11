@@ -2,6 +2,8 @@
 
 A trainer for Heroes of Might and Magic III - Horn of the Abyss, designed to make challenging custom maps more accessible.
 
+DOWNLOAD v 1.0 [>>HERE<<](https://github.com/a-popovkin/hota-trainer/releases/tag/v1.0)
+
 ![Trainer Screenshot](screenshot.jpeg)
 
 ## 📋 Description
