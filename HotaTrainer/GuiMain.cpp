@@ -281,7 +281,7 @@ void CreateControls(HWND hWnd)
     SendMessage(hButton, BM_SETIMAGE, IMAGE_BITMAP, (LPARAM)hBitmapClose);
     controls.push_back(hButton);
 
-    HWND hVersionLabel = CreateWindow(L"STATIC", L"HotA v1.7.3",
+    HWND hVersionLabel = CreateWindow(L"STATIC", L"HotA v1.8.0",
         WS_VISIBLE | WS_CHILD | SS_CENTER,
         425, 76, 80, 20,
         hWnd, nullptr, hInst, nullptr);

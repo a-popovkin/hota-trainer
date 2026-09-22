@@ -154,6 +154,15 @@ void Trainer::LookupGameTables()
         if (mbi.State == MEM_COMMIT and mbi.AllocationProtect == PAGE_READWRITE)
         {
             auto pBaseAddress = static_cast<std::byte*>(mbi.BaseAddress);
+
+            if (mbi.RegionSize > Constants::s_heroesTableSize)
+                LOG(L"Found candidate: 0x%X\n", mbi.RegionSize);
+
+            if (mbi.RegionSize > max(Constants::s_heroesTableSize, Constants::s_gameClassSize))
+            {
+                LOG(L"here!\n");
+            }
+
             switch (mbi.RegionSize) {
             case Constants::s_heroesTableSize:
                 if (pHeroesTable) 
